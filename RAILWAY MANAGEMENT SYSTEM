@@ -1,0 +1,200 @@
+import pymongo from tabulate import tabulate 
+ 
+client = pymongo.MongoClient("mongodb://localhost:27017/") db = client["Railway_Management_Project"] collection = db["trains"] 
+ 
+ 
+def view_all_trains(): 
+    entries = collection.find() 
+    headers = ["TRAIN ID", "TRAIN NAME", "ORIGIN STATION", "DESTINATION 
+STATION", "NUMBER OF SEATS AVAILABLE"]     rows = [] 
+ 
+    for ent in entries: 
+        train_id = ent.get("train_id", "N/A") 
+        train_name = ent.get("train_name", "N/A")         origin = ent.get("origin", "N/A")         destination = ent.get("destination", "N/A")         no_of_seats = ent.get("no_of_seats", "N/A") 
+ 
+        row = [train_id, train_name, origin, destination, no_of_seats]         rows.append(row) 
+ 
+    print(tabulate(rows, headers=headers, tablefmt="grid")) 
+ 
+ 
+def insert_trains(): 
+    train_id = input("Enter train Id: ")     train_name = input("Enter train name: ")     origin = input("Enter starting station: ")     destination = input("Enter destination of train: ")     no_of_seats = int(input("Enter number of seats present in the train: ")) 
+ 
+    train = { 
+        "train_id": train_id, 
+        "train_name": train_name,         "origin": origin, 
+        "destination": destination, 
+        "no_of_seats": no_of_seats 
+    } 
+ 
+    collection.insert_one(train)     print("Data entered successfully.") 
+ 
+ 
+def update_train_details(): 
+    train_id = input("Enter the id of train which is to be updated: ") 
+ 
+    print("Select what you want to update in the details")     print("1. Want to change Train Name")     print("2. Want to change Starting Station")     print("3. Want to change Destination Station")     print("4. Want to change Number Of Seats Present") 
+ 
+    your_choice = input("Enter your choice: ") 
+ 
+    update_fields = {} 
+ 
+    if your_choice == '1': 
+        new_train_name = input("Enter new Train Name: ")         if new_train_name: 
+            update_fields["train_name"] = new_train_name     elif your_choice == '2': 
+        new_origin_station = input("Enter new Starting station: ")         if new_origin_station: 
+            update_fields["origin"] = new_origin_station     elif your_choice == '3': 
+        new_destination_station = input("Enter new Destination station: ")         if new_destination_station: 
+            update_fields["destination"] = new_destination_station     elif your_choice == '4': 
+        new_number_of_seats = input("Enter new number of seats present: ")         if new_number_of_seats: 
+            update_fields["no_of_seats"] = int(new_number_of_seats)     else: 
+        print("Invalid choice.") 
+ 
+    if update_fields: 
+        update_result = collection.update_one({"train_id": train_id}, {"$set": update_fields}) 
+ 
+        if update_result.modified_count > 0:             print("Data updated successfully.") 
+ 
+            updated_entry = collection.find_one({"train_id": train_id})             print("Updated data:")             print(updated_entry)         else: 
+            print("No matching entry found for update.")     else: 
+        print("No value provided for update.") 
+ 
+ 
+def delete_train(): 
+    train_id = input("Enter Train ID to delete: ")     collection.delete_one({"train_id": train_id})     print("Train deleted successfully.") 
+ 
+ 
+def limit_entries(): 
+    limit = int(input("Enter Limit: "))     trains = collection.find().limit(limit) 
+ 
+    headers = ["TRAIN ID", "TRAIN NAME", "STARTING STATION", "Destination 
+STATION", "NUMBER OF SEATS PRESENT"]     rows = [] 
+ 
+    for train in trains: 
+        train_id = train.get("train_id", "N/A")         train_name = train.get("train_name", "N/A")         origin = train.get("origin", "N/A")         destination = train.get("destination", "N/A")         no_of_seats = train.get("no_of_seats", "N/A") 
+ 
+        row = [train_id, train_name, origin, destination, no_of_seats]         rows.append(row) 
+ 
+    print(tabulate(rows, headers=headers, tablefmt="grid")) 
+ 
+ 
+def number_of_trains(): 
+    count = collection.count_documents({})     print("Total number of trains:", count) 
+ 
+ 
+def distinct_origin_station(): 
+    sources = collection.distinct("origin")     print("Distinct Starting Stations:")     if sources: 
+        sources_data = [{"Origin": source} for source in sources]         print(tabulate(sources_data, headers="keys", tablefmt="grid"))     else: 
+        print("No distinct origin stations found.") 
+ 
+ 
+def sort_trains(): 
+    result = collection.find().sort("no_of_seats", pymongo.DESCENDING)     print("Trains sorted in descending order of number of seats:")     trains = list(result)     if trains: 
+        headers = trains[0].keys()         rows = [[train[field] for field in headers] for train in trains]         print(tabulate(rows, headers=headers, tablefmt="grid"))     else: 
+        print("No trains found.") 
+ 
+ 
+def aggregate_commands(option):     if option == 1: 
+        result = collection.aggregate([ 
+            {"$group": {"_id": "$origin", "total_trains": {"$sum": 1}}} 
+        ]) 
+        print("Total Trains from each Source:")         docs = list(result)         if docs: 
+            headers = docs[0].keys()             rows = [[doc[field] for field in headers] for doc in docs]             print(tabulate(rows, headers=headers, tablefmt="grid"))         else: 
+            print("No data available for total trains from each source.")     elif option == 2: 
+        result = collection.aggregate([ 
+            {"$group": {"_id": "$destination", "total_seats": {"$sum": 
+"$no_of_seats"}}} 
+        ]) 
+        print("Total Seats Available in each Destination:")         docs = list(result)         if docs: 
+            headers = docs[0].keys()             rows = [[doc[field] for field in headers] for doc in docs]             print(tabulate(rows, headers=headers, tablefmt="grid"))         else: 
+            print("No data available for total seats available in each destination.")     elif option == 3: 
+        result = collection.aggregate([ 
+            {"$group": {"_id": "$no_of_seats", "total_trains": {"$sum": 1}}},             {"$sort": {"_id": 1}} 
+        ]) 
+        print("Grouping by Seat-wise and Counting:")         docs = list(result)         if docs: 
+            headers = docs[0].keys()             rows = [[doc[field] for field in headers] for doc in docs]             print(tabulate(rows, headers=headers, tablefmt="grid"))         else: 
+            print("No data available for grouping by seat-wise and counting.")     elif option == 4: 
+        result = collection.aggregate([ 
+            {"$group": {"_id": {"source": "$origin", "destination": "$destination"}, 
+                        "avg_seats": {"$avg": "$no_of_seats"}}}, 
+            {"$project": {"_id": 0, "origin": "$_id.origin", "destination": 
+"$_id.destination", 
+                          "average_seats": "$avg_seats"}} 
+        ]) 
+        print("Average Seats Available per Route:")         docs = list(result)         if docs: 
+            headers = docs[0].keys()             rows = [[doc[field] for field in headers] for doc in docs]             print(tabulate(rows, headers=headers, tablefmt="grid"))         else: 
+            print("No data available for average seats per route.")     elif option == 5: 
+        result = collection.aggregate([ 
+            {"$sample": {"size": 5}} 
+        ]) 
+        print("Random Sample of Documents:") 
+        docs = list(result)         if docs: 
+            headers = docs[0].keys()             rows = [[doc[field] for field in headers] for doc in docs]             print(tabulate(rows, headers=headers, tablefmt="grid"))         else: 
+            print("No documents found.")     elif option == 6: 
+        min_seats = int(input("Enter minimum number of seats available: "))         max_seats = int(input("Enter maximum number of seats available: "))         result = collection.aggregate([ 
+            {"$match": {"no_of_seats": {"$gt": min_seats, "$lt": max_seats}}} 
+        ]) 
+        print("Trains with seats available between", min_seats, "and", max_seats, ":") 
+        docs = list(result)         if docs: 
+            headers = docs[0].keys()             rows = [[doc[field] for field in headers] for doc in docs]             print(tabulate(rows, headers=headers, tablefmt="grid"))         else: 
+print("No trains found with seats available in the specified range.") 
+ 
+ 
+def book_ticket(): 
+    origin = input("Enter the origin station: ")     destination = input("Enter the destination station: ") 
+ 
+    trains = list(collection.find({"origin": origin, "destination": destination})) 
+ 
+    if len(trains) > 0: 
+        print("Available trains for the route:")         for idx, train in enumerate(trains):             print(                 f"{idx + 1}. Train Name: {train['train_name']}, Train ID: {train['train_id']}, Seats Available: {train['no_of_seats']}") 
+ 
+        choice = int(input("Enter the number of the train you want to book: "))         selected_train = trains[choice - 1] 
+ 
+        if selected_train["no_of_seats"] > 0: 
+            num_passengers = int(input("Enter the number of passengers: "))             for i in range(num_passengers): 
+                print(f"\nBooking details for Passenger {i + 1}:")                 user_name = input("Enter passenger's name: ")                 user_age = input("Enter passenger's age: ")                 collection.update_one({"_id": selected_train["_id"]}, {"$inc": 
+{"no_of_seats": -1}}) 
+                print(                     f"Ticket booked successfully for train: 
+{selected_train['train_name']} for passenger: {user_name}")                 print("Passenger Details:")                 print("Name:", user_name)                 print("Age:", user_age) 
+                 
+        else: 
+            print("Sorry, no seats available for the selected train.")     else: 
+        print("No trains found for the given origin and destination.") 
+ 
+ 
+def close_connection():     client.close()     print("Connection to MongoDB closed successfully.") 
+ 
+ 
+def main(): 
+    print("WELCOME TO INDIAN RAILWAYS") 
+    print("------------------------------------")     user_type = input("Are you an Admin or a Passenger? (Admin/Passenger): 
+").lower()     if user_type == 'admin':         while True: print("\nAdmin Panel - Railway Management System") 
+            print("1. View all trains")             print("2. Insert train details")             print("3. Update train details")             print("4. Delete train details")             print("5. Show only required number of trains")             print("6. Total Number of trains")             print("7. Show distinct starting stations")             print("8. Sort all trains")             print("9. Aggregate Commands") 
+            print("10. Exit") 
+ 
+            choice = int(input("Enter your choice: ")) 
+ 
+            if choice == 1: 
+                view_all_trains()             elif choice == 2:                 insert_trains()             elif choice == 3: 
+                update_train_details()             elif choice == 4:                 delete_train()             elif choice == 5:                 limit_entries()             elif choice == 6: 
+                number_of_trains() 
+elif choice == 7:                 distinct_origin_station()             elif choice == 8:                 sort_trains()             elif choice == 9: 
+                print("1. Total Trains from each Source")                 print("2. Total Seats Available in each Destination")                 print("3. Group by Seat-wise and Count")                 print("4. Average Seats Available per Route")                 print("5. Random Sample of Trains")                 print("6. Have trains between a limit")                 aggregate_option = int(input("Enter aggregate command option: "))                 aggregate_commands(aggregate_option)             elif choice == 10: 
+                close_connection()                 print("Exiting Admin Panel...")                 break             else: 
+                print("Invalid choice. Please try again.")     elif user_type == 'passenger':         while True: 
+            print("\nPassenger Panel - Railway Ticket Booking")             print("1. View all trains")             print("2. Book a train ticket")             print("3. Exit") 
+ 
+choice = int(input("Enter your choice: ")) 
+ 
+            if choice == 1: 
+                view_all_trains()             elif choice == 2:                 book_ticket()             elif choice == 3: 
+                close_connection()                 print("Exiting Passenger Panel...")                 break             else: 
+                print("Invalid choice. Please try again.")     else: 
+        print("Invalid user type. Please try again.")if __name__ == "__main__": 
+    main() 
+ 
+ 
+ 
+ 
+ 
+ 
